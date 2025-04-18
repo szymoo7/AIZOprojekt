@@ -24,11 +24,13 @@ public:
                 break;
 
             case Mode::FILE_TEST: {
-
+                fileTest(args);
+                break;
             }
 
             case Mode::BENCHMARK: {
                 benchmark(args);
+                break;
             }
 
             default:
@@ -244,144 +246,146 @@ private:
 
     static void benchmark(const Arguments& args) {
         Timer timer;
+        DynamicArray<int>* times = new DynamicArray<int>(100);
+        for(int i = 0; i < 100; i++) {
 
-        switch(args.dataType) {
-            case 0: {  // Added braces to create a new scope
-                DynamicArray<int>* data = nullptr;
-                switch (args.distribution) {
-                    case 0:
-                        data = generateTestData<int>(args);
-                        break;
-                    case 1:
-                        data = generateTestDataDescending<int>(args);
-                        break;
-                    case 2:
-                        data = generateTestDataAscending<int>(args);
-                        break;
-                    case 3:
-                        data = generateTestData_33<int>(args);
-                        break;
-                    case 4:
-                        data = generateTestData_66<int>(args);
-                        break;
-                    default:
-                        throw std::invalid_argument("Invalid distribution choice");
-                }
-                switch (args.algorithm) {
-                    int max;
-                    int min =
-                    float avg = 0.0f;
-                    case 0: // Bubble Sort
+            switch (args.dataType) {
+                case 0: {  // Added braces to create a new scope
+                    DynamicArray<int> *data = nullptr;
+                    switch (args.distribution) {
+                        case 0:
+                            data = generateTestData<int>(args);
+                            break;
+                        case 1:
+                            data = generateTestDataDescending<int>(args);
+                            break;
+                        case 2:
+                            data = generateTestDataAscending<int>(args);
+                            break;
+                        case 3:
+                            data = generateTestData_33<int>(args);
+                            break;
+                        case 4:
+                            data = generateTestData_66<int>(args);
+                            break;
+                        default:
+                            throw std::invalid_argument("Invalid distribution choice");
+                    }
 
-                        for(int i = 0; i < 100; i++) {
-                            timer.reset();
+                    switch (args.algorithm) {
+                        case 0: // Bubble Sort
                             timer.start();
                             Sorter<int>::bubbleSort(data);
                             timer.stop();
-                            avg += timer.result();
-                        }
-                        avg /= 100;
-                        break;
-                    case 1: // Merge Sort
-                        timer.start();
-                        Sorter<int>::mergeSort(data);
-                        timer.stop();
-                        break;
-                    case 2: // Insert Sort
-                        timer.start();
-                        Sorter<int>::insertSort(data);
-                        timer.stop();
-                        break;
-                    case 3: // Binary Insert Sort
-                        timer.start();
-                        Sorter<int>::binaryInsertSort(data);
-                        timer.stop();
-                        break;
-                    case 4: // Quick Sort
-                        timer.start();
-                        Sorter<int>::quickSort(data, 0, data->getSize() - 1);
-                        timer.stop();
-                        break;
-                    case 5: // Heap Sort
-                        timer.start();
-                        Sorter<int>::heapSort(data);
-                        timer.stop();
-                        break;
-                    default:
-                        delete data;  // Added cleanup before throwing
-                        throw std::invalid_argument("Invalid algorithm choice for BENCHMARK mode");
+                            break;
+                        case 1: // Merge Sort
+                            timer.start();
+                            Sorter<int>::mergeSort(data);
+                            timer.stop();
+                            break;
+                        case 2: // Insert Sort
+                            timer.start();
+                            Sorter<int>::insertSort(data);
+                            timer.stop();
+                            break;
+                        case 3: // Binary Insert Sort
+                            timer.start();
+                            Sorter<int>::binaryInsertSort(data);
+                            timer.stop();
+                            break;
+                        case 4: // Quick Sort
+                            timer.start();
+                            Sorter<int>::quickSort(data, 0, data->getSize() - 1);
+                            timer.stop();
+                            break;
+                        case 5: // Heap Sort
+                            timer.start();
+                            Sorter<int>::heapSort(data);
+                            timer.stop();
+                            break;
+                        default:
+                            delete data;  // Added cleanup before throwing
+                            throw std::invalid_argument("Invalid algorithm choice for BENCHMARK mode");
+                    }
+
+                    // Write sorted data to file if output file is specified
+//                if (!args.outputFile.empty()) {
+//                    writeDataToFile(args.outputFile, data);
+//                }
+
+
+                    std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
+                    Sorter<int>::isCorrect(data);
+
+                    delete data;  // Added memory cleanup
+                    break;
                 }
+                case 1: {  // Added braces to create a new scope
+                    DynamicArray<float> *dataFloat = nullptr;
+                    switch (args.distribution) {
+                        case 0:
+                            dataFloat = generateTestData<float>(args);
+                            break;
+                        case 1:
+                            dataFloat = generateTestDataDescending<float>(args);
+                            break;
+                        case 2:
+                            dataFloat = generateTestDataAscending<float>(args);
+                            break;
+                        case 3:
+                            dataFloat = generateTestData_33<float>(args);
+                            break;
+                        case 4:
+                            dataFloat = generateTestData_66<float>(args);
+                            break;
+                        default:
+                            throw std::invalid_argument("Invalid distribution choice");
+                    }
+                    switch (args.algorithm) {
+                        case 0: // Bubble Sort
+                            timer.start();
+                            Sorter<float>::bubbleSort(dataFloat);
+                            timer.stop();
+                            break;
+                        case 1: // Merge Sort
+                            timer.start();
+                            Sorter<float>::mergeSort(dataFloat);
+                            timer.stop();
+                            break;
+                        case 2: // Insert Sort
+                            timer.start();
+                            Sorter<float>::bubbleSort(dataFloat);
+                            timer.stop();
+                            break;
+                        default:
+                            delete dataFloat;  // Added cleanup before throwing
+                            throw std::invalid_argument("Invalid algorithm choice for BENCHMARK mode");
+                    }
 
-                // Write sorted data to file if output file is specified
-                if (!args.outputFile.empty()) {
-                    writeDataToFile(args.outputFile, data);
+                    // Write sorted data to file if output file is specified
+                    if (!args.outputFile.empty()) {
+                        writeDataToExcel(args.outputFile, times, args);
+                    }
+
+                    // Output benchmark results
+                    std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
+                    Sorter<float>::isCorrect(dataFloat);
+                    delete dataFloat;  // Added memory cleanup
+                    break;
                 }
-
-                std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
-                Sorter<int>::isCorrect(data);
-
-                delete data;  // Added memory cleanup
-                break;
+                default:
+                    throw std::invalid_argument("Invalid data type");
             }
-            case 1: {  // Added braces to create a new scope
-                DynamicArray<float>* dataFloat = nullptr;
-                switch (args.distribution) {
-                    case 0:
-                        dataFloat = generateTestData<float>(args);
-                        break;
-                    case 1:
-                        dataFloat = generateTestDataDescending<float>(args);
-                        break;
-                    case 2:
-                        dataFloat = generateTestDataAscending<float>(args);
-                        break;
-                    case 3:
-                        dataFloat = generateTestData_33<float>(args);
-                        break;
-                    case 4:
-                        dataFloat = generateTestData_66<float>(args);
-                        break;
-                    default:
-                        throw std::invalid_argument("Invalid distribution choice");
-                }
-                switch (args.algorithm) {
-                    case 0: // Bubble Sort
-                        timer.start();
-                        Sorter<float>::bubbleSort(dataFloat);
-                        timer.stop();
-                        break;
-                    case 1: // Merge Sort
-                        timer.start();
-                        Sorter<float>::mergeSort(dataFloat);
-                        timer.stop();
-                        break;
-                    case 2: // Insert Sort
-                        timer.start();
-                        Sorter<float>::insertSort(dataFloat);
-                        timer.stop();
-                        break;
-                    default:
-                        delete dataFloat;  // Added cleanup before throwing
-                        throw std::invalid_argument("Invalid algorithm choice for BENCHMARK mode");
-                }
 
-                // Write sorted data to file if output file is specified
-                if (!args.outputFile.empty()) {
-                    writeDataToFile(args.outputFile, dataFloat);
-                }
-
-                // Output benchmark results
-                std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
-                Sorter<float>::isCorrect(dataFloat);
-                delete dataFloat;  // Added memory cleanup
-                break;
-            }
-            default:
-                throw std::invalid_argument("Invalid data type");
+            times->add(timer.result());
         }
+        if (!args.outputFile.empty()) {
+            writeDataToExcel(args.outputFile, times, args);
+        }
+        delete times;
     }
 
-    static void writeDataToExcel(const std::string &filename, long minTime, long maxTime, long avgTime, long medianTime, const Arguments &args) {
+    static void writeDataToExcel(const std::string &filename, DynamicArray<int>* times, const Arguments &args) {
         bool fileExists = std::filesystem::exists(filename);
         bool isEmpty = fileExists && std::filesystem::file_size(filename) == 0;
 
@@ -396,16 +400,31 @@ private:
         }
 
         static int recordNumber = 1; // Static variable to keep track of record numbers
+        Sorter<int>::quickSort(times, 0, times->getSize() - 1);
+        int minTime = times->get(0);
+        int maxTime = times->get(times->getSize() - 1);
+        int medianTime = times->get(49);
+        auto algorithm = algToString(args.algorithm);
+        auto distribution = distToString(args.distribution);
+        auto dataType = typeToString(args.dataType);
+        float avgTime = 0;
+
+        for(int i = 0; i < 100; i++) {
+            avgTime += times->get(i);
+        }
+
+        avgTime /= 100;
+
 
         outputFile << recordNumber++ << ","
                    << minTime << ","
                    << maxTime << ","
                    << avgTime << ","
                    << medianTime << ","
-                   << algToString(args.algorithm) << ","
-                   << distToString(args.distribution) << ","
+                   << algorithm << ","
+                   << distribution << ","
                    << args.size << ","
-                   << typeToString(args.dataType) << std::endl;
+                   << dataType << std::endl;
 
 
 
