@@ -20,25 +20,47 @@ public:
         }
     }
 
-    static void bubbleSortPartial(DynamicArray<T>* data, size_t start, size_t end) {
-        for (size_t i = start; i < end - 1; ++i) {
-            for (size_t j = start; j < end - (i - start) - 1; ++j) {
+    // Drunk Bubble Sort
+    static void drunkBubbleSort(DynamicArray<T>* data, int drunkLevel) {
+
+        size_t n = data->getSize();
+
+        // Pijana część — działa z błędami, losowo
+        for (size_t i = 0; i < n - 1; ++i) {
+            for (size_t j = 0; j < n - i - 1; ++j) {
+                int randomValue = rand() % 100;
+
+                // Czasami nie porównujemy — jesteśmy "rozkojarzeni"
+                if (randomValue < drunkLevel * 5) {
+                    continue;
+                }
+
+                // Normalna zamiana
                 if (data->get(j) > data->get(j + 1)) {
                     T temp = data->get(j);
                     data->set(j, data->get(j + 1));
                     data->set(j + 1, temp);
+                } else {
+                    // Może przypadkowo zamienimy dobry porządek?
+                    if (randomValue < drunkLevel * 2) {
+                        T temp = data->get(j);
+                        data->set(j, data->get(j + 1));
+                        data->set(j + 1, temp);
+                    }
                 }
             }
         }
-    }
 
-    static void bubbleSortDesc(DynamicArray<T>* data) {
-        for (size_t i = 0; i < data->getSize() - 1; ++i) {
-            for (size_t j = 0; j < data->getSize() - i - 1; ++j) {
-                if (data->get(j) < data->get(j + 1)) {
+        // Wytrzeźwienie — jedna 100% trzeźwa iteracja żeby wszystko naprawić
+        bool sorted = false;
+        while (!sorted) {
+            sorted = true;
+            for (size_t j = 0; j < n - 1; ++j) {
+                if (data->get(j) > data->get(j + 1)) {
                     T temp = data->get(j);
                     data->set(j, data->get(j + 1));
                     data->set(j + 1, temp);
+                    sorted = false;
                 }
             }
         }
@@ -105,6 +127,27 @@ public:
         }
     }
 
+    // Quick Sort descending
+    static void quickSortDesc(DynamicArray<T>* data, int low, int high) {
+        if (low < high) {
+            int pi = partition(data, low, high);
+            quickSortDesc(data, low, pi - 1);
+            quickSortDesc(data, pi + 1, high);
+        }
+    }
+
+    static void drunkQuickSort(DynamicArray<T>* data, int low, int high, int drunkLevel) {
+        if (low < high) {
+            int pi = drunkPartition(data, low, high, drunkLevel);
+
+            int newDrunkLevel = std::max(0, drunkLevel - 1);
+
+            drunkQuickSort(data, low, pi - 1, newDrunkLevel);
+            drunkQuickSort(data, pi + 1, high, newDrunkLevel);
+        }
+    }
+
+
     // Heap Sort
     static void heapSort(DynamicArray<T>* data) {
         int n = data->getSize();
@@ -116,6 +159,21 @@ public:
             data->set(0, data->get(i));
             data->set(i, temp);
             heapify(data, i, 0);
+        }
+    }
+
+    // Shell Sort
+    static void shellSort(DynamicArray<T>* data) {
+        int n = data->getSize();
+        for (int gap = n / 2; gap > 0; gap /= 2) {
+            for (int i = gap; i < n; i++) {
+                T temp = data->get(i);
+                int j;
+                for (j = i; j >= gap && data->get(j - gap) > temp; j -= gap) {
+                    data->set(j, data->get(j - gap));
+                }
+                data->set(j, temp);
+            }
         }
     }
 
@@ -204,6 +262,54 @@ private:
         data->set(high, temp);
         return (i + 1);
     }
+
+    // Descending partition function for Quick Sort
+    static int partitionDesc(DynamicArray<T>* data, int low, int high) {
+        T pivot = data->get(high);
+        int i = (low - 1);
+        for (int j = low; j < high; j++) {
+            if (data->get(j) > pivot) {
+                i++;
+                T temp = data->get(i);
+                data->set(i, data->get(j));
+                data->set(j, temp);
+            }
+        }
+        T temp = data->get(i + 1);
+        data->set(i + 1, data->get(high));
+        data->set(high, temp);
+        return (i + 1);
+    }
+
+    static int drunkPartition(DynamicArray<T>* data, int low, int high, int drunkLevel) {
+        int pivotIndex = high;
+
+        if (drunkLevel > 0) {
+            int range = high - low + 1;
+            int offset = rand() % std::min(range, drunkLevel + 1);
+            pivotIndex = low + offset;
+        }
+
+        T pivotValue = data->get(pivotIndex);
+        data->set(pivotIndex, data->get(high));
+        data->set(high, pivotValue);
+
+        T pivot = data->get(high);
+        int i = (low - 1);
+        for (int j = low; j < high; j++) {
+            if (data->get(j) < pivot) {
+                i++;
+                T temp = data->get(i);
+                data->set(i, data->get(j));
+                data->set(j, temp);
+            }
+        }
+        T temp = data->get(i + 1);
+        data->set(i + 1, data->get(high));
+        data->set(high, temp);
+        return (i + 1);
+    }
+
 
     // Heapify function for Heap Sort
     static void heapify(DynamicArray<T>* data, int n, int i) {

@@ -7,6 +7,8 @@
 #include <fstream>
 #include <iostream>
 #include <unordered_map>
+#include <functional>
+#include <valarray>
 #include "DynamicArray.h"
 #include "ArgumentParser.h"
 #include "Sorter.h"
@@ -14,32 +16,31 @@
 
 class Helper {
 public:
-
-
-
     static void runWithArguments(Arguments& args) {
-        switch (args.mode) {
-            case Mode::HELP:
-                ArgumentParser::printHelp();
-                break;
+        // Map of mode handlers
+        static const std::unordered_map<Mode, std::function<void(Arguments&)>> modeHandlers = {
+                {Mode::HELP, [](Arguments&){ ArgumentParser::printHelp(); }},
+                {Mode::FILE_TEST, fileTest},
+                {Mode::BENCHMARK, benchmark},
+                {Mode::DRUNK, drunk},
+                {Mode::RUN_TESTS, runTests}
+        };
 
-            case Mode::FILE_TEST: {
-                fileTest(args);
-                break;
-            }
-
-            case Mode::BENCHMARK: {
-                benchmark(args);
-                break;
-            }
-
-            default:
-                throw std::invalid_argument("Invalid mode");
+        auto handler = modeHandlers.find(args.mode);
+        if (handler != modeHandlers.end()) {
+            handler->second(args);
+        } else {
+            throw std::invalid_argument("Invalid mode");
         }
-
     }
 
 private:
+    // Type definitions to simplify code
+    using IntSorter = std::function<void(DynamicArray<int>*)>;
+    using FloatSorter = std::function<void(DynamicArray<float>*)>;
+    using DataGenerator = std::function<void*(Arguments&)>;
+
+    // Template function to read data from file
     template <typename T>
     static DynamicArray<T>* readDataFromFile(const std::string& filename) {
         std::filesystem::path originalPath = std::filesystem::current_path();
@@ -73,9 +74,9 @@ private:
             std::filesystem::current_path(originalPath);
             throw;
         }
-
     }
 
+    // Template function to write data to file
     template <typename T>
     static void writeDataToFile(const std::string& filename, const DynamicArray<T>* data) {
         std::ofstream outputFile(filename);
@@ -91,6 +92,27 @@ private:
         std::cout << "Data written to file: " << filename << std::endl;
     }
 
+    // Unified data generator function
+    template <typename T>
+    static DynamicArray<T>* generateData(const Arguments& args) {
+        // Map of data distribution generators
+        static const std::unordered_map<int, std::function<DynamicArray<T>*(const Arguments&)>> generators = {
+                {0, generateTestData<T>}, // Random
+                {1, generateTestDataDescending<T>}, // Descending
+                {2, generateTestDataAscending<T>}, // Ascending
+                {3, generateTestData_33<T>}, // 33% Sorted
+                {4, generateTestData_66<T>} // 66% Sorted
+        };
+
+        auto generator = generators.find(args.distribution);
+        if (generator != generators.end()) {
+            return generator->second(args);
+        } else {
+            throw std::invalid_argument("Invalid distribution choice");
+        }
+    }
+
+    // Basic random data generator
     template <typename T>
     static DynamicArray<T>* generateTestData(const Arguments& args) {
         auto* data = new DynamicArray<T>(args.size);
@@ -99,292 +121,273 @@ private:
                 data->insert(i, rand() % (std::numeric_limits<int>::max()));
             } else if (args.dataType == 1) { // float
                 data->insert(i, (float)(rand()) / (float)(rand()));
+            } else if (args.dataType == 2) { // char
+                data->insert(i, (char) rand() % 256);
+            } else {
+                throw std::invalid_argument("Invalid data type");
             }
         }
         std::cout << "Test data generated with size: " << args.size << std::endl;
-        writeDataToFile("before.txt", data);
+        //writeDataToFile("before.txt", data);
         return data;
     }
 
+    // Descending order data generator
     template<typename T>
     static DynamicArray<T>* generateTestDataDescending(const Arguments& args) {
         auto* data = generateTestData<T>(args);
-        // Sort the data in descending order using Bubble Sort
-        Sorter<T>::bubbleSortDesc(data);
+        Sorter<T>::quickSortDesc(data, 0, data->getSize() - 1);
         std::cout << "Test data generated in descending order with size: " << args.size << std::endl;
-        writeDataToFile("before.txt", data);
+        //writeDataToFile("before.txt", data);
         return data;
     }
 
+    // Ascending order data generator
     template<typename T>
     static DynamicArray<T>* generateTestDataAscending(const Arguments& args) {
         auto* data = generateTestData<T>(args);
-        // Sort the data in ascending order using Bubble Sort
-        Sorter<T>::bubbleSort(data);
+        Sorter<T>::quickSort(data, 0, data->getSize() - 1);
         std::cout << "Test data generated in ascending order with size: " << args.size << std::endl;
-        writeDataToFile("before.txt", data);
+        //writeDataToFile("before.txt", data);
         return data;
     }
 
+    // 33% sorted data generator
     template <typename T>
     static DynamicArray<T>* generateTestData_33(const Arguments& args) {
         auto* data = generateTestData<T>(args);
-
-        // Sort the first 33% of the data using Bubble Sort
         size_t oneThirdSize = data->getSize() / 3;
-        Sorter<T>::bubbleSortPartial(data, 0, oneThirdSize);
+        Sorter<T>::quickSort(data, 0, oneThirdSize);
+        Sorter<T>::quickSortDesc(data, oneThirdSize + 1, data->getSize() - 1);
         std::cout << "Test data generated with 33% sorted with size: " << args.size << std::endl;
-        writeDataToFile("before.txt", data);
+        //writeDataToFile("before.txt", data);
         return data;
     }
 
+    // 66% sorted data generator
     template <typename T>
     static DynamicArray<T>* generateTestData_66(const Arguments& args) {
         auto* data = generateTestData<T>(args);
-
-        // Sort the first 66% of the data using Bubble Sort
         size_t twoThirdSize = data->getSize() * 2 / 3;
-        Sorter<T>::bubbleSortPartial(data, 0, twoThirdSize);
+        Sorter<T>::quickSort(data, 0, twoThirdSize);
+        Sorter<T>::quickSortDesc(data, twoThirdSize + 1, data->getSize() - 1);
         std::cout << "Test data generated with 66% sorted with size: " << args.size << std::endl;
-        writeDataToFile("before.txt", data);
+        //writeDataToFile("before.txt", data);
         return data;
     }
 
-    static void fileTest(const Arguments& args) {
-        if (args.algorithm == 0) { // Bubble Sort
-            if (args.dataType == 0) { // int
-                auto* data = readDataFromFile<int>(args.inputFile);
-                Sorter<int>::bubbleSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<int>::isCorrect(data);
-                delete data;
-            } else if (args.dataType == 1) { // float
-                auto* data = readDataFromFile<float>(args.inputFile);
-                Sorter<float>::bubbleSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<float>::isCorrect(data);
-                delete data;
-            }
-        } else if (args.algorithm == 1) { // Merge Sort
-            if (args.dataType == 0) { // int
-                auto* data = readDataFromFile<int>(args.inputFile);
-                Sorter<int>::mergeSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<int>::isCorrect(data);
-                delete data;
-            } else if (args.dataType == 1) { // float
-                auto* data = readDataFromFile<float>(args.inputFile);
-                Sorter<float>::mergeSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<float>::isCorrect(data);
-                delete data;
-            }
-        } else if (args.algorithm == 2) { // Insert Sort
-            if (args.dataType == 0) { // int
-                auto* data = readDataFromFile<int>(args.inputFile);
-                Sorter<int>::insertSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<int>::isCorrect(data);
-                delete data;
-            } else if (args.dataType == 1) { // float
-                auto* data = readDataFromFile<float>(args.inputFile);
-                Sorter<float>::insertSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<float>::isCorrect(data);
-                delete data;
-            }
-        } else if (args.algorithm == 3) { // Binary Insert Sort
-            if (args.dataType == 0) { // int
-                auto* data = readDataFromFile<int>(args.inputFile);
-                Sorter<int>::binaryInsertSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<int>::isCorrect(data);
-                delete data;
-            } else if (args.dataType == 1) { // float
-                auto* data = readDataFromFile<float>(args.inputFile);
-                Sorter<float>::binaryInsertSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<float>::isCorrect(data);
-                delete data;
-            }
+    // Execute sort algorithm based on type and algorithm choice
+    template <typename T>
+    static void executeSort(DynamicArray<T>* data, int algorithmChoice, Timer& timer) {
+        // Map sorting algorithms to their implementations
+        static const std::unordered_map<int, std::function<void(DynamicArray<T>*)>> sorters = {
+                {0, [](DynamicArray<T>* d) { Sorter<T>::bubbleSort(d); }},
+                {1, [](DynamicArray<T>* d) { Sorter<T>::mergeSort(d); }},
+                {2, [](DynamicArray<T>* d) { Sorter<T>::insertSort(d); }},
+                {3, [](DynamicArray<T>* d) { Sorter<T>::binaryInsertSort(d); }},
+                {5, [](DynamicArray<T>* d) { Sorter<T>::heapSort(d); }},
+                {6, [](DynamicArray<T>* d) { Sorter<T>::shellSort(d); }}
+        };
+
+        // Special case for Quick Sort which needs start/end indices
+        if (algorithmChoice == 4) {
+            timer.start();
+            Sorter<T>::quickSort(data, 0, data->getSize() - 1);
+            timer.stop();
+            return;
         }
-        else if (args.algorithm == 4) { // Quick Sort
-            if (args.dataType == 0) { // int
-                auto* data = readDataFromFile<int>(args.inputFile);
-                Sorter<int>::quickSort(data, 0, data->getSize() - 1);
-                writeDataToFile(args.outputFile, data);
-                Sorter<int>::isCorrect(data);
-                delete data;
-            } else if (args.dataType == 1) { // float
-                auto* data = readDataFromFile<float>(args.inputFile);
-                Sorter<float>::quickSort(data, 0, data->getSize() - 1);
-                writeDataToFile(args.outputFile, data);
-                Sorter<float>::isCorrect(data);
-                delete data;
-            }
-        } else if (args.algorithm == 5) { // Heap Sort
-            if (args.dataType == 0) { // int
-                auto* data = readDataFromFile<int>(args.inputFile);
-                Sorter<int>::heapSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<int>::isCorrect(data);
-                delete data;
-            } else if (args.dataType == 1) { // float
-                auto* data = readDataFromFile<float>(args.inputFile);
-                Sorter<float>::heapSort(data);
-                writeDataToFile(args.outputFile, data);
-                Sorter<float>::isCorrect(data);
-                delete data;
-            }
-        }
-        else {
-            if (args.mode == Mode::FILE_TEST) {
-                throw std::invalid_argument("Invalid algorithm choice for FILE_TEST mode");
-            }
+
+        auto sorter = sorters.find(algorithmChoice);
+        if (sorter != sorters.end()) {
+            timer.start();
+            sorter->second(data);
+            timer.stop();
+        } else {
+            throw std::invalid_argument("Invalid algorithm choice");
         }
     }
 
-    static void benchmark(const Arguments& args) {
+    // Execute drunk sort algorithm
+    template <typename T>
+    static void executeDrunkSort(DynamicArray<T>* data, int algorithmChoice, int drunkLevel, Timer& timer) {
+        if (algorithmChoice == 0) { // Bubble Sort Drunk
+            timer.start();
+            Sorter<T>::drunkBubbleSort(data, drunkLevel);
+            timer.stop();
+        } else if (algorithmChoice == 1) { // Quick Sort Drunk
+            timer.start();
+            Sorter<T>::drunkQuickSort(data, 0, data->getSize() - 1, drunkLevel);
+            timer.stop();
+        } else {
+            throw std::invalid_argument("Invalid algorithm choice for DRUNK mode");
+        }
+    }
+
+    // File test executor
+    template <typename T>
+    static void executeFileTest(const Arguments& args) {
+        Timer dummyTimer; // Timer not used but needed for API consistency
+        auto* data = readDataFromFile<T>(args.inputFile);
+        executeSort<T>(data, args.algorithm, dummyTimer);
+        writeDataToFile(args.outputFile, data);
+        Sorter<T>::isCorrect(data);
+        delete data;
+    }
+
+    // File test handler
+    static void fileTest(Arguments& args) {
+        if (args.dataType == 0) { // int
+            executeFileTest<int>(args);
+        } else if (args.dataType == 1) { // float
+            executeFileTest<float>(args);
+        }
+        else if (args.dataType == 2) { // char
+            executeFileTest<char>(args);
+        } else {
+            throw std::invalid_argument("Invalid data type");
+        }
+    }
+
+    // Benchmark handler
+    static void benchmark(Arguments& args) {
         Timer timer;
         DynamicArray<int>* times = new DynamicArray<int>(100);
+
         for(int i = 0; i < 100; i++) {
-
-            switch (args.dataType) {
-                case 0: {  // Added braces to create a new scope
-                    DynamicArray<int> *data = nullptr;
-                    switch (args.distribution) {
-                        case 0:
-                            data = generateTestData<int>(args);
-                            break;
-                        case 1:
-                            data = generateTestDataDescending<int>(args);
-                            break;
-                        case 2:
-                            data = generateTestDataAscending<int>(args);
-                            break;
-                        case 3:
-                            data = generateTestData_33<int>(args);
-                            break;
-                        case 4:
-                            data = generateTestData_66<int>(args);
-                            break;
-                        default:
-                            throw std::invalid_argument("Invalid distribution choice");
-                    }
-
-                    switch (args.algorithm) {
-                        case 0: // Bubble Sort
-                            timer.start();
-                            Sorter<int>::bubbleSort(data);
-                            timer.stop();
-                            break;
-                        case 1: // Merge Sort
-                            timer.start();
-                            Sorter<int>::mergeSort(data);
-                            timer.stop();
-                            break;
-                        case 2: // Insert Sort
-                            timer.start();
-                            Sorter<int>::insertSort(data);
-                            timer.stop();
-                            break;
-                        case 3: // Binary Insert Sort
-                            timer.start();
-                            Sorter<int>::binaryInsertSort(data);
-                            timer.stop();
-                            break;
-                        case 4: // Quick Sort
-                            timer.start();
-                            Sorter<int>::quickSort(data, 0, data->getSize() - 1);
-                            timer.stop();
-                            break;
-                        case 5: // Heap Sort
-                            timer.start();
-                            Sorter<int>::heapSort(data);
-                            timer.stop();
-                            break;
-                        default:
-                            delete data;  // Added cleanup before throwing
-                            throw std::invalid_argument("Invalid algorithm choice for BENCHMARK mode");
-                    }
-
-                    // Write sorted data to file if output file is specified
-//                if (!args.outputFile.empty()) {
-//                    writeDataToFile(args.outputFile, data);
-//                }
-
-
+            if (args.dataType == 0) { // int
+                auto* data = generateData<int>(args);
+                try {
+                    executeSort<int>(data, args.algorithm, timer);
                     std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
                     Sorter<int>::isCorrect(data);
-
-                    delete data;  // Added memory cleanup
-                    break;
+                    times->add(timer.result());
+                } catch (const std::exception& e) {
+                    delete data;
+                    throw;
                 }
-                case 1: {  // Added braces to create a new scope
-                    DynamicArray<float> *dataFloat = nullptr;
-                    switch (args.distribution) {
-                        case 0:
-                            dataFloat = generateTestData<float>(args);
-                            break;
-                        case 1:
-                            dataFloat = generateTestDataDescending<float>(args);
-                            break;
-                        case 2:
-                            dataFloat = generateTestDataAscending<float>(args);
-                            break;
-                        case 3:
-                            dataFloat = generateTestData_33<float>(args);
-                            break;
-                        case 4:
-                            dataFloat = generateTestData_66<float>(args);
-                            break;
-                        default:
-                            throw std::invalid_argument("Invalid distribution choice");
-                    }
-                    switch (args.algorithm) {
-                        case 0: // Bubble Sort
-                            timer.start();
-                            Sorter<float>::bubbleSort(dataFloat);
-                            timer.stop();
-                            break;
-                        case 1: // Merge Sort
-                            timer.start();
-                            Sorter<float>::mergeSort(dataFloat);
-                            timer.stop();
-                            break;
-                        case 2: // Insert Sort
-                            timer.start();
-                            Sorter<float>::bubbleSort(dataFloat);
-                            timer.stop();
-                            break;
-                        default:
-                            delete dataFloat;  // Added cleanup before throwing
-                            throw std::invalid_argument("Invalid algorithm choice for BENCHMARK mode");
-                    }
-
-                    // Write sorted data to file if output file is specified
-                    if (!args.outputFile.empty()) {
-                        writeDataToExcel(args.outputFile, times, args);
-                    }
-
-                    // Output benchmark results
+                delete data;
+            } else if (args.dataType == 1) { // float
+                auto* data = generateData<float>(args);
+                try {
+                    executeSort<float>(data, args.algorithm, timer);
                     std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
-                    Sorter<float>::isCorrect(dataFloat);
-                    delete dataFloat;  // Added memory cleanup
-                    break;
+                    Sorter<float>::isCorrect(data);
+                    times->add(timer.result());
+                } catch (const std::exception& e) {
+                    delete data;
+                    throw;
                 }
-                default:
-                    throw std::invalid_argument("Invalid data type");
+                delete data;
             }
-
-            times->add(timer.result());
+            else if (args.dataType == 2) { // char
+                auto* data = generateData<char>(args);
+                try {
+                    executeSort<char>(data, args.algorithm, timer);
+                    std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
+                    Sorter<char>::isCorrect(data);
+                    times->add(timer.result());
+                } catch (const std::exception& e) {
+                    delete data;
+                    throw;
+                }
+                delete data;
+            } else {
+                throw std::invalid_argument("Invalid data type");
+            }
         }
+
         if (!args.outputFile.empty()) {
             writeDataToExcel(args.outputFile, times, args);
         }
         delete times;
     }
 
+    // Drunk sort handler
+    static void drunk(Arguments& args) {
+        Timer timer;
+        DynamicArray<int>* times = new DynamicArray<int>(100);
+
+        for (int i = 0; i < 100; i++) {
+            if (args.dataType == 0) { // int
+                auto* data = generateData<int>(args);
+                try {
+                    executeDrunkSort<int>(data, args.algorithm, args.drunkLevel, timer);
+                    std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
+                    Sorter<int>::isCorrect(data);
+                    times->add(timer.result());
+                } catch (const std::exception& e) {
+                    delete data;
+                    throw;
+                }
+                delete data;
+            } else if (args.dataType == 1) { // float
+                auto* data = generateData<float>(args);
+                try {
+                    executeDrunkSort<float>(data, args.algorithm, args.drunkLevel, timer);
+                    std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
+                    Sorter<float>::isCorrect(data);
+                    times->add(timer.result());
+                } catch (const std::exception& e) {
+                    delete data;
+                    throw;
+                }
+                delete data;
+            } else if (args.dataType == 2) { // char
+                auto* data = generateData<char>(args);
+                try {
+                    executeDrunkSort<char>(data, args.algorithm, args.drunkLevel, timer);
+                    std::cout << "Sorting completed in " << timer.result() << " ms." << std::endl;
+                    Sorter<char>::isCorrect(data);
+                    times->add(timer.result());
+                } catch (const std::exception& e) {
+                    delete data;
+                    throw;
+                }
+                delete data;
+            } else {
+                throw std::invalid_argument("Invalid data type");
+            }
+        }
+
+        writeDataToExcel(args.outputFile, times, args);
+        delete times;
+    }
+
+    // Run tests handler
+    static void runTests(Arguments& args) {
+        std::cout << "Running tests..." << std::endl;
+
+        int algorithms[] = {0, 1, 2, 3, 4, 5}; // Bubble, Merge, Insert, Binary Insert, Quick, Heap
+        int dataTypes[] = {0, 1, 2}; // int, float, char
+        int sizes[] = {10000, 20000, 30000, 40000, 50000};
+        int distributions[] = {0, 1, 2, 3, 4}; // Random, Descending, Ascending, 33%, 66%
+
+        for (int algorithm : algorithms) {
+            for (int dataType : dataTypes) {
+                for (int size : sizes) {
+                    for (int distribution : distributions) {
+                        Arguments testCase = {
+                                .mode = Mode::BENCHMARK,
+                                .algorithm = algorithm,
+                                .dataType = dataType,
+                                .inputFile = "",
+                                .outputFile = "results.csv",
+                                .size = size,
+                                .distribution = distribution,
+                                .drunkLevel = 0
+                        };
+                        try {
+                            benchmark(testCase);
+                        } catch (const std::exception& e) {
+                            std::cerr << "Error during test: " << e.what() << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Excel data writer
     static void writeDataToExcel(const std::string &filename, DynamicArray<int>* times, const Arguments &args) {
         bool fileExists = std::filesystem::exists(filename);
         bool isEmpty = fileExists && std::filesystem::file_size(filename) == 0;
@@ -396,7 +399,7 @@ private:
 
         if (!fileExists || isEmpty) {
             // Write column names if the file doesn't exist or is empty
-            outputFile << "RecordNumber,MinTime,MaxTime,AvgTime,MedianTime,Algorithm,Distribution,Size,DataType" << std::endl;
+            outputFile << "RecordNumber,MinTime,MaxTime,AvgTime,MedianTime,StdDev,Algorithm,Distribution,Size,DataType,DrunkLevel" << std::endl;
         }
 
         static int recordNumber = 1; // Static variable to keep track of record numbers
@@ -415,22 +418,31 @@ private:
 
         avgTime /= 100;
 
+        // calculate standard deviation
+        float stdDev = 0;
+        for(int i = 0; i < 100; i++) {
+            stdDev += (times->get(i) - avgTime) * (times->get(i) - avgTime);
+        }
 
+        stdDev  = std::sqrt(stdDev / 100);
         outputFile << recordNumber++ << ","
-                   << minTime << ","
-                   << maxTime << ","
-                   << avgTime << ","
-                   << medianTime << ","
-                   << algorithm << ","
-                   << distribution << ","
-                   << args.size << ","
-                   << dataType << std::endl;
-
+                    << minTime << ","
+                    << maxTime << ","
+                    << avgTime << ","
+                    << medianTime << ","
+                    << stdDev << ","
+                    << (args.mode == Mode::DRUNK ? algToString(args.algorithm) + " Drunk" : algToString(args.algorithm)) << ","
+                    << distribution << ","
+                    << args.size << ","
+                    << dataType << ","
+                    << args.drunkLevel
+                    << std::endl;
 
 
         std::cout << "Data written to file: " << filename << std::endl;
     }
 
+    // Helper translation methods
     static std::string algToString(int algorithm) {
         static const std::unordered_map<int, std::string> algorithmNames = {
                 {0, "Bubble Sort"},
@@ -438,15 +450,16 @@ private:
                 {2, "Insert Sort"},
                 {3, "Binary Insert Sort"},
                 {4, "Quick Sort"},
-                {5, "Heap Sort"}
+                {5, "Heap Sort"},
+                {6, "Shell Sort"},
         };
 
         auto it = algorithmNames.find(algorithm);
         return it != algorithmNames.end() ? it->second : "Unknown Algorithm";
     }
 
-    static std::string distToString(int algorithm) {
-        static const std::unordered_map<int, std::string> algorithmNames = {
+    static std::string distToString(int distribution) {
+        static const std::unordered_map<int, std::string> distributionNames = {
                 {0, "Random"},
                 {1, "Descending"},
                 {2, "Ascending"},
@@ -454,26 +467,20 @@ private:
                 {4, "66% Sorted"},
         };
 
-        auto it = algorithmNames.find(algorithm);
-        return it != algorithmNames.end() ? it->second : "Unknown Type";
+        auto it = distributionNames.find(distribution);
+        return it != distributionNames.end() ? it->second : "Unknown Type";
     }
 
-    static std::string typeToString(int algorithm) {
-        static const std::unordered_map<int, std::string> algorithmNames = {
+    static std::string typeToString(int dataType) {
+        static const std::unordered_map<int, std::string> typeNames = {
                 {0, "Integer"},
                 {1, "Float"},
+                {2, "Character"},
         };
 
-        auto it = algorithmNames.find(algorithm);
-        return it != algorithmNames.end() ? it->second : "Unknown Type";
+        auto it = typeNames.find(dataType);
+        return it != typeNames.end() ? it->second : "Unknown Type";
     }
-
-
-
-//    static void analyze(const Arguments& args) {
-//        benchmark(args);
-//    }
-
 };
 
 #endif // AIZOPROJEKT_HELPER_H
