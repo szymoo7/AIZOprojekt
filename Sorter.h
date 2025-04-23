@@ -73,20 +73,19 @@ public:
 
     // Insert Sort
     static void insertSort(DynamicArray<T>* data) {
-        if (data->getSize() <= 1) return;
+        size_t n = data->getSize();
+        if (n <= 1) return;
 
-        for (size_t i = 1; i < data->getSize(); i++) {
+        for (size_t i = 1; i < n; i++) {
             T key = data->get(i);
-            data->deleteAt(i);  // Remove current element
+            size_t j = i;
 
-            // Find the correct position in the sorted portion
-            size_t j = 0;
-            while (j < i && data->get(j) <= key) {
-                j++;
+            // Przesuwaj elementy większe od key w lewo
+            while (j > 0 && data->get(j - 1) > key) {
+                data->set(j, data->get(j - 1));
+                j--;
             }
-
-            // Insert the element at the correct position
-            data->insert(j, key);
+            data->set(j, key);
         }
     }
 
@@ -118,19 +117,35 @@ public:
         }
     }
 
-    // Quick Sort
+    // Quick Sort old
+//    static void quickSort(DynamicArray<T>* data, int low, int high) {
+//        if (low < high) {
+//            int pi = partition(data, low, high);
+//            quickSort(data, low, pi - 1);
+//            quickSort(data, pi + 1, high);
+//        }
+//    }
+
+    // Quick Sort new (with optimal tail recursion)
     static void quickSort(DynamicArray<T>* data, int low, int high) {
-        if (low < high) {
+        while (low < high) {
             int pi = partition(data, low, high);
-            quickSort(data, low, pi - 1);
-            quickSort(data, pi + 1, high);
+
+            // Recur on the smaller partition first
+            if (pi - low < high - pi) {
+                quickSort(data, low, pi - 1);
+                low = pi + 1;  // Tail call optimization
+            } else {
+                quickSort(data, pi + 1, high);
+                high = pi - 1;  // Tail call optimization
+            }
         }
     }
 
     // Quick Sort descending
     static void quickSortDesc(DynamicArray<T>* data, int low, int high) {
         if (low < high) {
-            int pi = partition(data, low, high);
+            int pi = partitionDesc(data, low, high);
             quickSortDesc(data, low, pi - 1);
             quickSortDesc(data, pi + 1, high);
         }

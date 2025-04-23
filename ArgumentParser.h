@@ -81,6 +81,7 @@ public:
         }
         else if (modeStr == "--run_tests") {
             args.mode = Mode::RUN_TESTS;
+            args.outputFile = argv[3];
         }
 
         else {

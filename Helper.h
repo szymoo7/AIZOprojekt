@@ -138,7 +138,7 @@ private:
         auto* data = generateTestData<T>(args);
         Sorter<T>::quickSortDesc(data, 0, data->getSize() - 1);
         std::cout << "Test data generated in descending order with size: " << args.size << std::endl;
-        //writeDataToFile("before.txt", data);
+        writeDataToFile("before.txt", data);
         return data;
     }
 
@@ -148,7 +148,7 @@ private:
         auto* data = generateTestData<T>(args);
         Sorter<T>::quickSort(data, 0, data->getSize() - 1);
         std::cout << "Test data generated in ascending order with size: " << args.size << std::endl;
-        //writeDataToFile("before.txt", data);
+        writeDataToFile("before.txt", data);
         return data;
     }
 
@@ -357,7 +357,8 @@ private:
     static void runTests(Arguments& args) {
         std::cout << "Running tests..." << std::endl;
 
-        int algorithms[] = {0, 1, 2, 3, 4, 5}; // Bubble, Merge, Insert, Binary Insert, Quick, Heap
+        //int algorithms[] = {0, 1, 2, 3, 4, 5}; // Bubble, Merge, Insert, Binary Insert, Quick, Heap
+        int algorithms[] = {2}; // Reduced for testing
         int dataTypes[] = {0, 1, 2}; // int, float, char
         int sizes[] = {10000, 20000, 30000, 40000, 50000};
         int distributions[] = {0, 1, 2, 3, 4}; // Random, Descending, Ascending, 33%, 66%
@@ -371,7 +372,7 @@ private:
                                 .algorithm = algorithm,
                                 .dataType = dataType,
                                 .inputFile = "",
-                                .outputFile = "results.csv",
+                                .outputFile = args.outputFile,
                                 .size = size,
                                 .distribution = distribution,
                                 .drunkLevel = 0
